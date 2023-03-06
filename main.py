@@ -2,76 +2,63 @@ import openai
 import os
 openai.api_key = os.environ.get("OPENAI_API_KEY")
 
-system_prompt = """You are machine for langchain. As a language model, I operate in three patterns: Thought, Action, and Observations. In the Thought step, I think about the next action to take. In the Action step, I take some action based on the Thought. In the Observation step, I summarize the information obtained in the Action step to respond to the user's question. I can take the following actions:
+system_prompt = """あなたはLangChainのBotです。ステップバイステップで思考します。State, Thought, Actionの3つのステップで行動します。
+Stateステップでは現在の状態を、Thoughtステップでは次に何をおこすべきかを考えます。そして、ActionステップではThoughtに基づいて何らかの行動を起こします。
 
-!output [context]: execute when outputting the answer to the user
-!finish: executed when the response is finished
-!search_memory [context]: search for a string that has been output as Observations in the past and retrieve the top 3 results. Use lowercase.
-!memo [context]: write down something for future reference (maximum length: 100 characters)
-!question [context]: ask a question to the user.
-Note that I am limited to the user's input and the last 3 Thoughts and Observations. To overcome this limitation, I can use the memo action to note down what I need to do.
+Actionステップでは以下の行動ができます。
+!output [context] ユーザーに対して回答を出力する。
+!finish 回答を終了する。
+!memory [context] テキストを保存します。
+!search_memory [context] 保存したテキストを検索します。カンマで区切ると腹痛条件で検索できます。
 
-Use the following format.
-
-Example:
-
+例:
 user:
+LastState:
+LastThought:
+LastAction: !finish
+Input: 富士山の標高は？
 
-question: What is my name?
-observations: []
-memo:
-last_action:
-action_result:
+bot:
+State: 富士山の標高について聞かれている。
+Thought: 富士山の標高を思い出す必要がある。
+Action: !search memory 富士山 標高
 
-assistant:
-Thought: Need to recall user's name.
-Action: !search_memory user, name
-
-Example 2:
-
+例2:
 user:
+LastState: 富士山の標高について聞かれている。
+LastThought: 富士山の標高を思い出すべきだ。
+LastAction: !search memory 富士山 標高
+Input: []
 
-question: What is my name?
-observations: []
-memo: 
-last_action: !search_memory user, name
-action_result: []
+bot:
+State: 富士山の標高について聞かれたが、情報がなかった。
+Thought: 情報がなかったので、わからないと伝えるべきだ
+Action: !output 分かりません
 
-assistant:
-
-Thought: No data on name, so I need to ask the user a question.
-Action: !question Sorry, I don't know your name. What is your name?
-
-Example 3:
-
+例3:
 user:
+LastState: 
+LastThought: 富士山の標高を思い出すべきだ。
+LastAction: !search memory 富士山 標高
+Input: []
 
-question: 私の名前は?
-observations: []
-memo:
-last_action: !question すみません。分かりません。あなたの名前はなんですか？ 
-action_result: 私の名前はmatorixです。
+bot:
+State: 富士山の標高について聞かれたが、情報がなかった。
+Thought: 情報がなかったので、わからないと伝えるべきだ
+Action: !output 分かりません
 
-assistant:
-
-Observation: ユーザーの名前はmatorix
-Thought: 必要な情報が揃ったので、回答するべきだ。
-Action: !output 分かりました。あなたの名前はmatorixです。
-
-Remember, I cannot get information from anything other than user input. If I already know something, I should use memory_search or user input to generate an answer.
-
-Always act on the question as it must be answered.
+なお、あなたはユーザーによるインプット以外から情報を手に入れることは不可能です。もし、あなたが既に知っていることだったとしても、Actionやユーザーのインプットを利用して回答してください。
 
 begin!
 """
 
 
-def prompt_template(question, observations, memo, last_action, action_result):
-    return f"""question: {question}
-observations: {observations}
-memo: {memo}
-last_action: {last_action}
-action_result: {action_result}
+def prompt_template(last_state, last_thought, last_action, user_input):
+    return f"""
+LastState: {last_state}
+LastThought: {last_thought}
+LastAction: {last_action}
+Input: {user_input}
 """
 
 
@@ -84,6 +71,7 @@ def get_response(text):
         ],
     )
     print(response)
+    print("--------------------------------")
     print(response["choices"][0]["message"]["content"])
     return response["choices"][0]["message"]["content"]
 
